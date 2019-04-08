@@ -13,18 +13,18 @@ typedef struct mat_t {
 } mat_t;
 
 mat_t arrayMax[100];
-mat_t result[100];
+mat_t result;
 int r1, c1, r2, c2, rchain, cchain, ticket, counter, counter2;
 
 
-int resultMatrixInit(int nrow, int ncol, int arrayTicket){
+int resultMatrixInit(int nrow, int ncol){
     int i, j;
-    result[arrayTicket].r = nrow;
-    result[arrayTicket].c = ncol;
-    result[arrayTicket].m = malloc(nrow*ncol*sizeof(long long));
+    result.r = nrow;
+    result.c = ncol;
+    result.m = malloc(nrow*ncol*sizeof(long long));
     for (i = 0; i < nrow; i++){
         for(j = 0; j < ncol; j++){
-            result[arrayTicket].m[i*result[arrayTicket].c+j] = 0;
+            result.m[i*result.c+j] = 0;
         }
     }
     return 0;
@@ -65,18 +65,25 @@ int matrixBuilder(int nrow, int ncol, mat_t *m){
     return 0;
 }
 
-int multiplier(mat_t *m1, mat_t *m2, int arrayTicket){
-    int i, j, k;
-
-    resultMatrixInit(m1->r, m2->c, arrayTicket);
-
-    for (i = 0; i < m1->r; i++){
+int multiplier(mat_t *m1, mat_t *m2, int arrayTicket, int defaultRow){
+    int i, j, k, offset;
+    offset = arrayTicket + 1;
+    for (i = 0; i < defaultRow; i++){
         for(j = 0; j < m2->c; j++){
             for(k = 0; k < m1->c; k++){
-                result[arrayTicket].m[i*result[arrayTicket].c+j] += m1->m[i*m1->c+k] * m2->m[k*m2->c+j];
+                result.m[i*result.c+j] += m1->m[i*m1->c+k] * m2->m[k*m2->c+j];
             }
         }
     }
+
+    matrixInitializer(defaultRow, result.c, offset);
+
+    for (i = 0; i < defaultRow; i++){
+        for(j = 0; j < result.c; j++){
+            arrayMax[offset].m[i*arrayMax[offset].c+j] += result.m[i*result.c+j];
+        }
+    }
+    return 0;
 }
 
 // Scans two at a time and puts them into arrayMax[100]
@@ -94,29 +101,28 @@ void readingInMatrix(){
         scanf("%d", &arrayMax[ticket].r);
         scanf("%d", &arrayMax[ticket].c);
     }
-    printf("Counter = %d\n", counter);
 }
 
 
 void calculateMatrix(){
     ticket = 0;
-    counter2 = 0;
-    int i;
-    for (i = 0; i < counter; i++){
-        multiplier(&arrayMax[ticket], &arrayMax[ticket+1], ticket);
-        printMatrix(&result[ticket]);
+    int i, anchorRow;
+    anchorRow = arrayMax[ticket].r;
+    for (i = 0; i < counter-1; i++){
+        resultMatrixInit(anchorRow, arrayMax[ticket+1].c);
+        /* printMatrix(&result[ticket]); */
+        multiplier(&arrayMax[ticket], &arrayMax[ticket+1], ticket, anchorRow);
         ticket++;
-        counter2++;
     }
 }
 
 void printAll(){
-    ticket = 0;
+    ticket = 1;
     int i;
-    printf("counter2 = %d\n", counter2);
-    for (i = 0; i < counter2; i++){
-        printf("ticket = %d\n", ticket);
-        printMatrix(&result[ticket]);
+    for (i = 0; i < counter-1; i++){
+        printf("\n#%d Result\n", i+1);
+        printf("--------------\n");
+        printMatrix(&arrayMax[ticket]);
         ticket++;
     }
 }
@@ -128,48 +134,5 @@ int main(int argc, char *argv[])
     readingInMatrix();
     calculateMatrix();
     printAll();
-    /* // First matrix
-    scanf("%d", &r1); 
-    scanf("%d", &c1);
-
-    matrixInitializer(r1, c1, ticket);
-    matrixBuilder(arrayMax[ticket].r, arrayMax[ticket].c, &arrayMax[ticket]);
-
-    // Second Matrix
-    scanf("%d", &r2); 
-    scanf("%d", &c2);
-
-    matrixInitializer(r2, c2, ticket+1);
-    matrixBuilder(arrayMax[ticket+1].r, arrayMax[ticket+1].c, &arrayMax[ticket+1]);
-
-    // Printing the first multiplication result
-    resultMatrixInit(arrayMax[ticket].r, arrayMax[ticket+1].c);
-    multiplier(&arrayMax[ticket], &arrayMax[ticket+1]);
-    printMatrix(&result);
-
-    // Start of the chain
-    scanf("%d", &rchain); 
-    scanf("%d", &cchain);
-
-    while(rchain != 0 && cchain != 0){
-
-        matrixInitializer(result.r, result.c, ticket+1);
-
-        for (i = 0; i < result.r; i++){
-            for ( j = 0; j < result.c; j++){
-                arrayMax[ticket+1].m[i*arrayMax[ticket+1].c+j] = result.m[i*result.c+j];
-            }
-        }
-        ticket++;
-        matrixInitializer(rchain, cchain, ticket+1);
-        matrixBuilder(arrayMax[ticket+1].r, arrayMax[ticket+1].c, &arrayMax[ticket+1]);
-        //printMatrix(&arrayMax[ticket+1]);
-        resultMatrixInit(arrayMax[ticket].r, arrayMax[ticket+1].c);
-        multiplier(&arrayMax[ticket], &arrayMax[ticket+1]);
-        printMatrix(&result);
-        scanf("%d", &rchain); 
-        scanf("%d", &cchain);
-        printf("rchain = %d || cchain = %d\n", rchain, cchain);
-    } */
     return 0;
 }
