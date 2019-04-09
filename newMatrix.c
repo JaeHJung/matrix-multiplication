@@ -12,9 +12,15 @@ typedef struct mat_t {
    long long *m;
 } mat_t;
 
+uint64_t diffr = 0;
+uint64_t diffw = 0;
+uint64_t diffc = 0;
+
+struct timespec startRead, endRead, startCompute, endCompute, startWrite, endWrite;
+
 mat_t arrayMax[100];
 mat_t result;
-int r1, c1, r2, c2, rchain, cchain, ticket, counter, counter2;
+int ticket, counter;
 
 
 int resultMatrixInit(int nrow, int ncol){
@@ -88,7 +94,8 @@ int multiplier(mat_t *m1, mat_t *m2, int arrayTicket, int defaultRow){
 
 // Scans two at a time and puts them into arrayMax[100]
 
-void readingInMatrix(){
+void *readingInMatrix(void *value){
+    clock_gettime(CLOCK_REALTIME, &startRead);
     ticket = 0;
     counter = 0;
     scanf("%d", &arrayMax[ticket].r);
@@ -101,10 +108,14 @@ void readingInMatrix(){
         scanf("%d", &arrayMax[ticket].r);
         scanf("%d", &arrayMax[ticket].c);
     }
+    clock_gettime(CLOCK_REALTIME, &endRead);
+    diffr += 1000000000 * (endRead.tv_sec - startRead.tv_sec) + endRead.tv_nsec - startRead.tv_nsec;
+    return NULL;
 }
 
 
-void calculateMatrix(){
+void *calculateMatrix(void *value){
+    clock_gettime(CLOCK_REALTIME, &startCompute);
     ticket = 0;
     int i, anchorRow;
     anchorRow = arrayMax[ticket].r;
@@ -114,9 +125,13 @@ void calculateMatrix(){
         multiplier(&arrayMax[ticket], &arrayMax[ticket+1], ticket, anchorRow);
         ticket++;
     }
+    clock_gettime(CLOCK_REALTIME, &endCompute);
+    diffc += 1000000000 * (endCompute.tv_sec - startCompute.tv_sec) + endCompute.tv_nsec - startCompute.tv_nsec;
+    return NULL;
 }
 
-void printAll(){
+void *printAll(void *value){
+    clock_gettime(CLOCK_REALTIME, &startWrite);
     ticket = 1;
     int i;
     for (i = 0; i < counter-1; i++){
@@ -125,14 +140,32 @@ void printAll(){
         printMatrix(&arrayMax[ticket]);
         ticket++;
     }
+    clock_gettime(CLOCK_REALTIME, &endWrite);
+    diffw += 1000000000 * (endWrite.tv_sec - startWrite.tv_sec) + endWrite.tv_nsec - startWrite.tv_nsec;
+    return NULL;
+}
+
+void *printTime(void *value){
+    printf("-------TIMER-------\n");
+    fprintf(stderr, "Reading:   %luns\n", diffr);
+    fprintf(stderr, "Computing: %luns\n", diffc);
+    fprintf(stderr, "Writing:   %luns\n", diffw);
+    return NULL;
 }
 
 int main(int argc, char *argv[])
 {
-    int i, j, k;
-    ticket = 0;
-    readingInMatrix();
-    calculateMatrix();
-    printAll();
-    return 0;
+    printf("start main\n");
+    if (argc > 1) {
+        printf("THREADING TECH HAS NOT YET IMPLEMENTED \n");
+        return 0;
+    } 
+    else {
+        ticket = 0;
+        readingInMatrix(NULL);
+        calculateMatrix(NULL);
+        printAll(NULL);
+        printTime(NULL);
+        return 0;
+    }
 }
