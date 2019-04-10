@@ -25,6 +25,8 @@ mat_t result;
 
 int ticket, counter;
 
+int readIndex, computeIndex, writeIndex;
+
 int resultMatrixInit(int nrow, int ncol){
 
     int i, j;
