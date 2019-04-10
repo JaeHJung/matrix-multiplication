@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <pthread.h>
+#define MAXCOUNT 105
 
 typedef struct mat_t {
    int r;
@@ -12,23 +13,26 @@ typedef struct mat_t {
    long long *m;
 } mat_t;
 
+mat_t result;
+mat_t arrayMax[MAXCOUNT];
 
+int ticket       = 0;
+int readIndex    = 0; 
+int writeIndex   = 2;
+int computeIndex = 3;
 
-uint64_t diffr = 0;
-uint64_t diffw = 0;
-uint64_t diffc = 0;
+uint64_t diffr   = 0;
+uint64_t diffw   = 0;
+uint64_t diffc   = 0;
+
+pthread_mutex_t readMutex    = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t writeMutex   = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t ticketMutex  = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t computeMutex = PTHREAD_MUTEX_INITIALIZER;
 
 struct timespec startRead, endRead, startCompute, endCompute, startWrite, endWrite;
 
-mat_t arrayMax[100];
-mat_t result;
-
-int ticket, counter;
-
-int readIndex, computeIndex, writeIndex;
-
 int resultMatrixInit(int nrow, int ncol){
-
     int i, j;
     result.r = nrow;
     result.c = ncol;
@@ -53,19 +57,6 @@ int matrixInitializer(int nrow, int ncol, int arrayTicket){
         for(j = 0; j < ncol; j++){
             arrayMax[arrayTicket].m[i*arrayMax[arrayTicket].c+j] = 0;
         }
-    }
-
-    return 0;
-}
-
-int printMatrix(mat_t *m){
-
-    int i, j;
-    for (i=0; i<m->r; i++) {
-        for (j=0; j<m->c; j++){
-            printf("%lld ", m->m[i*m->c+j]);
-        }
-        printf("\n");
     }
 
     return 0;
@@ -105,65 +96,69 @@ int multiplier(mat_t *m1, mat_t *m2, int arrayTicket, int defaultRow){
     return 0;
 }
 
-// Scans two at a time and puts them into arrayMax[100]
+int printMatrix(mat_t *m){
+
+    int i, j;
+    for (i=0; i<m->r; i++) {
+        for (j=0; j<m->c; j++){
+            printf("%lld ", m->m[i*m->c+j]);
+        }
+        printf("\n");
+    }
+
+    return 0;
+}
+
+// Scans two at a time and puts them into arrayMax[MAXCOUNT]
 
 void *readingInMatrix(){
+    pthread_mutex_lock(&ticketMutex);
     clock_gettime(CLOCK_REALTIME, &startRead);
-
-    printf("TEST TEST TEST\n");
-    ticket = 0;
-    counter = 0;
     scanf("%d", &arrayMax[ticket].r);
     scanf("%d", &arrayMax[ticket].c);
-    while (arrayMax[ticket].r != 0 && arrayMax[ticket].c != 0){
+    while (ticket + readIndex >= ticket && ticket < MAXCOUNT && arrayMax[ticket].r != 0 && arrayMax[ticket].c != 0){
         matrixInitializer(arrayMax[ticket].r, arrayMax[ticket].c, ticket);
         matrixBuilder(arrayMax[ticket].r, arrayMax[ticket].c, &arrayMax[ticket]);
         ticket++;
-        counter++;
+        readIndex++;
         scanf("%d", &arrayMax[ticket].r);
         scanf("%d", &arrayMax[ticket].c);
     } 
-
     clock_gettime(CLOCK_REALTIME, &endRead);
     diffr += 1000000000 * (endRead.tv_sec - startRead.tv_sec) + endRead.tv_nsec - startRead.tv_nsec;
-
+    pthread_mutex_unlock(&ticketMutex); 
     return NULL;
 }
 
 
 void *calculateMatrix(){
-
+    pthread_mutex_lock(&ticketMutex);
+    //printf("\n");
     clock_gettime(CLOCK_REALTIME, &startCompute);
-    printf("TEST TEST TEST\n");
-    ticket = 0;
-    int i, anchorRow;
-    anchorRow = arrayMax[ticket].r;
-    for (i = 0; i < counter-1; i++){
-        resultMatrixInit(anchorRow, arrayMax[ticket+1].c);
-        /* printMatrix(&result[ticket]); */
-        multiplier(&arrayMax[ticket], &arrayMax[ticket+1], ticket, anchorRow);
-        ticket++;
+    while(computeIndex < ticket - 1){
+        resultMatrixInit(arrayMax[computeIndex].r, arrayMax[computeIndex+1].c);
+        multiplier(&arrayMax[computeIndex], &arrayMax[computeIndex+1], computeIndex, arrayMax[computeIndex].r);
+        computeIndex++;      
     }
     clock_gettime(CLOCK_REALTIME, &endCompute);
     diffc += 1000000000 * (endCompute.tv_sec - startCompute.tv_sec) + endCompute.tv_nsec - startCompute.tv_nsec;
-
+    pthread_mutex_unlock(&ticketMutex);
     return NULL;
 }
 
 void *printAll(){
-
+    pthread_mutex_lock(&ticketMutex);
     clock_gettime(CLOCK_REALTIME, &startWrite);
-    ticket = 1;
-    int i;
-    for (i = 0; i < counter-1; i++){
-        printf("\n#%d Result\n", i+1);
+    while(writeIndex < ticket - 1){
+        
+        printf("\n#%d Result\n", writeIndex + 1);
         printf("--------------\n");
-        printMatrix(&arrayMax[ticket]);
-        ticket++;
+        printMatrix(&arrayMax[writeIndex+1]);
+        writeIndex++;     
     }
     clock_gettime(CLOCK_REALTIME, &endWrite);
     diffw += 1000000000 * (endWrite.tv_sec - startWrite.tv_sec) + endWrite.tv_nsec - startWrite.tv_nsec;
-
+    pthread_mutex_unlock(&ticketMutex);
     return NULL;
 }
 
@@ -184,9 +179,9 @@ void *testThread(void *value){
 
 int main(int argc, char *argv[])
 {
-    printf("start main\n");
+    printf("Begin Matrix Multiplication\n");
     if (argc > 1) {
-        printf("BEEP BOOP THREADING ENGAGED \n");
+        printf(">>> Multithreading <<<\n");
         pthread_t read, compute, write;
 
         pthread_create(&read, NULL, readingInMatrix, NULL);
@@ -203,6 +198,7 @@ int main(int argc, char *argv[])
         exit(0);
     } 
     else {
+        printf(">>> Single-threaded <<<\n");
         ticket = 0;
         readingInMatrix(NULL);
         calculateMatrix(NULL);
