@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <pthread.h>
+#include <stdbool.h>
 #define MAXCOUNT 105
 
 typedef struct mat_t {
@@ -16,19 +17,19 @@ typedef struct mat_t {
 mat_t result;
 mat_t arrayMax[MAXCOUNT];
 
-int ticket       = 0;
+
+int ticket = 0;
 int readIndex    = 0; 
-int writeIndex   = 2;
-int computeIndex = 3;
+int writeIndex   = 0;
+int computeIndex = 0;
+int arrayFilled = 0;
+
 
 uint64_t diffr   = 0;
 uint64_t diffw   = 0;
 uint64_t diffc   = 0;
 
-pthread_mutex_t readMutex    = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t writeMutex   = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t ticketMutex  = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t computeMutex = PTHREAD_MUTEX_INITIALIZER;
 
 struct timespec startRead, endRead, startCompute, endCompute, startWrite, endWrite;
 
@@ -109,56 +110,83 @@ int printMatrix(mat_t *m){
     return 0;
 }
 
+bool canAccessReadIndex(){
+    return !(computeIndex >= readIndex);
+}
+
+bool canAccessComputeIndex(){
+    return !(writeIndex >= computeIndex) && !(writeIndex >= readIndex);
+}
+
 // Scans two at a time and puts them into arrayMax[MAXCOUNT]
 
 void *readingInMatrix(){
-    pthread_mutex_lock(&ticketMutex);
+    ticket = 0;
+    printf("READ ALL\n");
     clock_gettime(CLOCK_REALTIME, &startRead);
     scanf("%d", &arrayMax[ticket].r);
     scanf("%d", &arrayMax[ticket].c);
-    while (ticket + readIndex >= ticket && ticket < MAXCOUNT && arrayMax[ticket].r != 0 && arrayMax[ticket].c != 0){
+    printf("READ ALL\n");
+    while (ticket < MAXCOUNT && arrayMax[ticket].r != 0 && arrayMax[ticket].c != 0){
+        printf("Read\n");
         matrixInitializer(arrayMax[ticket].r, arrayMax[ticket].c, ticket);
         matrixBuilder(arrayMax[ticket].r, arrayMax[ticket].c, &arrayMax[ticket]);
-        ticket++;
         readIndex++;
+        pthread_mutex_lock(&ticketMutex);
+        ticket++;
+        printf("arrayFilled = %d\n", arrayFilled);
+        arrayFilled = ticket;
+        printf("arrayFilled = %d\n", arrayFilled);
+        pthread_mutex_unlock(&ticketMutex);
         scanf("%d", &arrayMax[ticket].r);
         scanf("%d", &arrayMax[ticket].c);
-    } 
+    }
     clock_gettime(CLOCK_REALTIME, &endRead);
     diffr += 1000000000 * (endRead.tv_sec - startRead.tv_sec) + endRead.tv_nsec - startRead.tv_nsec;
-    pthread_mutex_unlock(&ticketMutex); 
     return NULL;
 }
 
 
 void *calculateMatrix(){
-    pthread_mutex_lock(&ticketMutex);
+    ticket = 0;
     //printf("\n");
     clock_gettime(CLOCK_REALTIME, &startCompute);
-    while(computeIndex < ticket - 1){
-        resultMatrixInit(arrayMax[computeIndex].r, arrayMax[computeIndex+1].c);
-        multiplier(&arrayMax[computeIndex], &arrayMax[computeIndex+1], computeIndex, arrayMax[computeIndex].r);
-        computeIndex++;      
+    printf("CALC ALL ticket %d || arrayFilled %d\n", ticket, arrayFilled);
+    while(ticket < arrayFilled){
+        printf("Calc\n");
+        if (canAccessReadIndex()){
+            resultMatrixInit(arrayMax[computeIndex].r, arrayMax[computeIndex+1].c);
+            multiplier(&arrayMax[computeIndex], &arrayMax[computeIndex+1], computeIndex, arrayMax[computeIndex].r);
+            computeIndex++;
+            pthread_mutex_lock(&ticketMutex);
+            ticket++;
+            pthread_mutex_unlock(&ticketMutex);
+        }
     }
     clock_gettime(CLOCK_REALTIME, &endCompute);
     diffc += 1000000000 * (endCompute.tv_sec - startCompute.tv_sec) + endCompute.tv_nsec - startCompute.tv_nsec;
-    pthread_mutex_unlock(&ticketMutex);
     return NULL;
 }
 
 void *printAll(){
-    pthread_mutex_lock(&ticketMutex);
+    ticket = 0;
     clock_gettime(CLOCK_REALTIME, &startWrite);
-    while(writeIndex < ticket - 1){
-        
-        printf("\n#%d Result\n", writeIndex + 1);
-        printf("--------------\n");
-        printMatrix(&arrayMax[writeIndex+1]);
-        writeIndex++;     
+    printf("PRINT ALL ticket %d || arrayFilled %d\n", ticket, arrayFilled);
+    while(ticket < arrayFilled-1){
+        printf("Print\n");
+        if(canAccessComputeIndex()){
+            printf("\n#%d Result\n", writeIndex + 1);
+            printf("--------------\n");
+            printMatrix(&arrayMax[writeIndex+1]);
+            writeIndex++;
+            pthread_mutex_lock(&ticketMutex);
+            ticket++;
+            pthread_mutex_unlock(&ticketMutex);     
+        }
     }
     clock_gettime(CLOCK_REALTIME, &endWrite);
     diffw += 1000000000 * (endWrite.tv_sec - startWrite.tv_sec) + endWrite.tv_nsec - startWrite.tv_nsec;
-    pthread_mutex_unlock(&ticketMutex);
+    
     return NULL;
 }
 
@@ -169,11 +197,6 @@ void *printTime(void *value){
     fprintf(stderr, "Computing: %luns\n", diffc);
     fprintf(stderr, "Writing:   %luns\n", diffw);
 
-    return NULL;
-}
-
-void *testThread(void *value){
-    printf("TEST TEST TEST\n");
     return NULL;
 }
 

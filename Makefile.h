@@ -9,7 +9,7 @@ matrix:
 	gcc -o matrix.c matrix -I
 
 newMatrix:
-	gcc -lpthread -o newMatrix.c newMatrix.c -I 
+	gcc newMatrix.c -o newMatrix -lpthread -Wall -Werror -I
 	
 arrayCreate:
 	gcc -lpthread -o arrayCreate.c arrayCreate -I

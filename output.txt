@@ -1,0 +1,7 @@
+Begin Matrix Multiplication
+>>> Multithreading <<<
+READ ALL
+READ ALL
+CALC ALL ticket 0 || arrayFilled 0
+PRINT ALL ticket 0 || arrayFilled 0
+-------TIMER-------
