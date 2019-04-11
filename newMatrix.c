@@ -18,8 +18,8 @@ mat_t arrayMax[MAXCOUNT];
 
 int ticket       = 0;
 int readIndex    = 0; 
-int writeIndex   = 2;
-int computeIndex = 3;
+int writeIndex   = 0;
+int computeIndex = 0;
 
 uint64_t diffr   = 0;
 uint64_t diffw   = 0;
@@ -67,7 +67,7 @@ int matrixBuilder(int nrow, int ncol, mat_t *m){
     int i, j;
     for(i = 0; i < nrow; i++){
         for(j =0; j < ncol; j++){
-            scanf("%lld", &m->m[i*m->c+j]); 
+            scanf("%lld", &m->m[i*m->c+j]);
         }
     }
 
