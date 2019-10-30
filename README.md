@@ -1,2 +1,2 @@
-# matrix-multiplicatoin
+# matrix-multiplication
 Matrix Multiplication in C
